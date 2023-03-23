@@ -20,8 +20,15 @@ GROUP = SUBPARSER.add_argument_group(
 GROUP.add_argument(
     "--ilias-url",
     type=str,
-    metavar="ILIAS",
+    metavar="BASE_URL",
     help="The base url of the ilias instance"
+)
+
+GROUP.add_argument(
+    "--client-id",
+    type=str,
+    metavar="CLIENT_ID",
+    help="The client id of the ilias instance"
 )
 
 configure_common_group_args(GROUP)
@@ -35,7 +42,11 @@ def load(args: argparse.Namespace, parser: configparser.ConfigParser) -> None:
     load_crawler(args, section)
 
     section["type"] = _PARSER_NAME
-    section["ilias_url"] = str(args.ilias_url)
+
+    if args.ilias_url is not None:
+        section["base_url"] = args.ilias_url
+    if args.client_id is not None:
+        section["client_id"] = args.client_id
 
     ilias_common_load(section, args, parser)
 
