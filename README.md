@@ -161,17 +161,18 @@ $ pferd ilias-web --base-url https://ilias.my-university.example --client-id My_
 To use a config file for the given instance, just extend the example above as follows:
 
 ```ini
-[auth:ilias]
-... # same as described above
-
-[crawl:ExampleCourse]
-type = ilias-web
-auth = auth:ilias
-target = 1337420
-# instance related settings
+[DEFAULT]
 base_url = https://ilias.my-university.example
 client_id = My_University
+
+[auth:ilias]
+...
+
+[crawl:foo]
+...
 ```
+
+Note that `base_url` and `client_id` can also be specified on a per-crawler level.
 
 ## Example configuration
 
