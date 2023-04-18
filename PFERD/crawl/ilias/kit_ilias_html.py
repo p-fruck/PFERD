@@ -48,7 +48,8 @@ class IliasPageElement:
             r"frm_(?P<id>\d+)",
             r"exc_(?P<id>\d+)",
             r"ref_id=(?P<id>\d+)",
-            r"target=[a-z]+_(?P<id>\d+)"
+            r"target=[a-z]+_(?P<id>\d+)",
+            r"mobs/mm_(?P<id>\d+)",
         ]
 
         for regex in regexes:
@@ -93,6 +94,8 @@ class IliasPage:
         if self._is_video_listing():
             log.explain("Page is a video listing, searching for elements")
             return self._find_video_entries()
+        if self._is_mediacast_listing():
+            return self._find_mediacast_entries()
         if self._is_exercise_file():
             log.explain("Page is an exercise, searching for elements")
             return self._find_exercise_entries()
@@ -184,13 +187,19 @@ class IliasPage:
         )
         return video_element_table is not None
 
+    def _headerimage_src_contains(self, part: str) -> bool:
+        element: Tag = self._soup.find(id="headerimage")
+        if not element:
+            return False
+
+        return part in element.attrs["src"].lower()
+
     def _is_ilias_opencast_embedding(self) -> bool:
         # ILIAS fluff around the real opencast html
-        if self._soup.find(id="headerimage"):
-            element: Tag = self._soup.find(id="headerimage")
-            if "opencast" in element.attrs["src"].lower():
-                return True
-        return False
+        return self._headerimage_src_contains("opencast")
+
+    def _is_mediacast_listing(self) -> bool:
+        return self._headerimage_src_contains("mcst")
 
     def _is_exercise_file(self) -> bool:
         # we know it from before
@@ -312,6 +321,24 @@ class IliasPage:
             items.append(IliasPageElement(IliasElementType.FILE, url, name))
 
         return items
+
+    def _find_mediacast_entries(self) -> List[IliasPageElement]:
+        videos: List[Tag] = self._soup.find_all("video")
+        results = [self._mediacast_video_to_element(video) for video in videos]
+        return results
+
+    def _mediacast_video_to_element(self, video: Tag) -> IliasPageElement:
+        video_url = self._abs_url_from_relative(video["src"])
+
+        preview_overlay = video.parent.parent.parent.parent.parent.parent
+        preview_description = preview_overlay.find("div", attrs={"class": "ilPlayerPreviewDescription"})
+        video_name = _sanitize_path_name(preview_description.text)
+        if not video_name.endswith(".mp4"):
+            video_name += ".mp4"
+
+        modification_time = datetime.now()
+
+        return IliasPageElement(IliasElementType.VIDEO_PLAYER, video_url, video_name, modification_time)
 
     def _find_video_entries(self) -> List[IliasPageElement]:
         # ILIAS has three stages for video pages
