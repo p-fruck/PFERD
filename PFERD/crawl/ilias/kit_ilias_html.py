@@ -330,13 +330,14 @@ class IliasPage:
     def _mediacast_video_to_element(self, video: Tag) -> IliasPageElement:
         video_url = self._abs_url_from_relative(video["src"])
 
-        preview_overlay = video.parent.parent.parent.parent.parent.parent
-        preview_description = preview_overlay.find("div", attrs={"class": "ilPlayerPreviewDescription"})
+        preview_overlay = video.parent.parent.parent.parent.parent
+        preview_description = preview_overlay.find("p")  # hidden paragraph in JS video player
         video_name = _sanitize_path_name(preview_description.text)
         if not video_name.endswith(".mp4"):
             video_name += ".mp4"
 
         modification_time = datetime.now()
+        print(video_name, video_url)
 
         return IliasPageElement(IliasElementType.VIDEO_PLAYER, video_url, video_name, modification_time)
 
@@ -356,11 +357,31 @@ class IliasPage:
             # We are in stage 1
             # The page is actually emtpy but contains the link to stage 2
             content_link: Tag = self._soup.select_one("#tab_series a")
-            url: str = self._abs_url_from_link(content_link)
-            query_params = {"limit": "800", "cmd": "asyncGetTableGUI", "cmdMode": "asynch"}
-            url = url_set_query_params(url, query_params)
-            log.explain("Found ILIAS video frame page, fetching actual content next")
-            return [IliasPageElement(IliasElementType.VIDEO_FOLDER_MAYBE_PAGINATED, url, "")]
+            if content_link:
+                url: str = self._abs_url_from_link(content_link)
+                query_params = {"limit": "800", "cmd": "asyncGetTableGUI", "cmdMode": "asynch"}
+                url = url_set_query_params(url, query_params)
+                log.explain("Found ILIAS video frame page, fetching actual content next")
+                return [IliasPageElement(IliasElementType.VIDEO_FOLDER_MAYBE_PAGINATED, url, "")]
+
+            # The table was not detected properly. This might be a table without identifier.
+            # In this case, there are links with an empty download attribute present.
+            dl_links = self._soup.select('table a[download=""]')
+            print(f"{len(dl_links)=}")
+            if len(dl_links):
+                results = []
+                for link in dl_links:
+                    video_url = self._abs_url_from_link(link)
+
+                    row = link.parent.parent
+                    title_link = row.find_all("td")[1].find("a")
+
+                    title = title_link.text
+                    name = _sanitize_path_name(title)
+                    # video_url = self._abs_url_from_link(title_link)
+
+                    results.append(IliasPageElement(IliasElementType.VIDEO_PLAYER, video_url, name))
+                return results
 
         is_paginated = self._soup.find(id=re.compile(r"tab_page_sel.+")) is not None
 

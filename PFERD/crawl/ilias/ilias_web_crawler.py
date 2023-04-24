@@ -221,7 +221,9 @@ instance's greatest bottleneck.
                     log.explain_topic(f"Parsing HTML page for {fmt_path(cl.path)}")
                     log.explain(f"URL: {next_stage_url}")
                     page = IliasPage(soup, next_stage_url, current_parent)
-                    if next_element := page.get_next_stage_element():
+                    print("gather_elements")
+                    next_element = page.get_next_stage_element()
+                    if next_element and next_element.url.startswith(self._conf._base_url):
                         current_parent = next_element
                         next_stage_url = next_element.url
                     else:
@@ -281,6 +283,7 @@ instance's greatest bottleneck.
                     log.explain_topic(f"Parsing HTML page for {fmt_path(cl.path)}")
                     log.explain(f"URL: {next_stage_url}")
                     page = IliasPage(soup, next_stage_url, current_parent)
+                    print("_crawl_ilias_page")
                     if next_element := page.get_next_stage_element():
                         current_parent = next_element
                         next_stage_url = next_element.url
@@ -338,6 +341,7 @@ instance's greatest bottleneck.
                 )
                 return None
 
+        print("_handle_ilias_element")
         if element.type == IliasElementType.FILE:
             return await self._handle_file(element, element_path)
         elif element.type == IliasElementType.FORUM:
@@ -371,7 +375,7 @@ instance's greatest bottleneck.
         elif element.type == IliasElementType.BOOKING:
             return await self._handle_booking(element, element_path)
         elif element.type == IliasElementType.VIDEO:
-            return await self._handle_file(element, element_path)
+            return await self._handle_video(element, element_path)
         elif element.type == IliasElementType.VIDEO_PLAYER:
             return await self._handle_video(element, element_path)
         elif element.type in _DIRECTORY_PAGES:
@@ -507,8 +511,9 @@ instance's greatest bottleneck.
         # is re-used if the video consists of a single stream. In that case the
         # file name is used and *not* the stream name the ilias html parser reported
         # to ensure backwards compatibility.
+        print(f"_handle_video")
         maybe_dl = await self.download(element_path, mtime=element.mtime, redownload=Redownload.ALWAYS)
-
+        print(f"_handle_video {maybe_dl=}")
         # If we do not want to crawl it (user filter) or we have every file
         # from the cached mapping already, we can ignore this and bail
         if not maybe_dl or self._all_videos_locally_present(element_path):
@@ -561,16 +566,23 @@ instance's greatest bottleneck.
         dl: DownloadToken
     ) -> None:
         stream_elements: List[IliasPageElement] = []
+        print("_download_video")
         async with dl as (bar, sink):
-            page = IliasPage(await self._get_page(element.url), element.url, element)
-            stream_elements = page.get_child_elements()
+            # print("async with")
+            # page = IliasPage(await self._get_page(element.url), element.url, element)
+            # print("get child items")
+            # stream_elements = page.get_child_elements()
 
-            if len(stream_elements) > 1:
-                log.explain(f"Found multiple video streams for {element.name}")
-            else:
-                log.explain(f"Using single video mode for {element.name}")
-                stream_element = stream_elements[0]
+            # print(f"_download_video - {len(steam_elements)=}")
 
+            # if len(stream_elements) > 1:
+            #     log.explain(f"Found multiple video streams for {element.name}")
+            # else:
+            #     log.explain(f"Using single video mode for {element.name}")
+            #     stream_element = stream_elements[0]
+            if True:
+                stream_element = element
+                # orig code continues
                 transformed_path = self._to_local_video_path(original_path)
                 if not transformed_path:
                     raise CrawlError(f"Download returned a path but transform did not for {original_path}")
@@ -579,6 +591,7 @@ instance's greatest bottleneck.
                 if self._output_dir.resolve(transformed_path).exists():
                     log.explain(f"Video for {element.name} existed locally")
                 else:
+                    print("Downloading video ", stream_element.url)
                     await self._stream_from_url(stream_element.url, sink, bar, is_video=True)
                 self.report.add_custom_value(str(original_path), [original_path.name])
                 return
@@ -613,6 +626,7 @@ instance's greatest bottleneck.
     async def _download_file(self, element: IliasPageElement, dl: DownloadToken) -> None:
         assert dl  # The function is only reached when dl is not None
         async with dl as (bar, sink):
+            print("Download file")
             await self._stream_from_url(element.url, sink, bar, is_video=False)
 
     async def _stream_from_url(self, url: str, sink: FileSink, bar: ProgressBar, is_video: bool) -> None:

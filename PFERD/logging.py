@@ -57,7 +57,7 @@ class Log:
         self._lines: List[str] = []
 
         # Whether different parts of the output are enabled or disabled
-        self.output_explain = False
+        self.output_explain = True
         self.output_status = True
         self.output_report = True
 
@@ -195,6 +195,7 @@ directly or as a GitHub issue: https://github.com/Garmelon/PFERD/issues/new
         """
 
         if self.output_explain:
+            print(f"  {escape(text)}")
             self.print(f"  {escape(text)}")
 
     def status(self, style: str, action: str, text: str, suffix: str = "") -> None:
